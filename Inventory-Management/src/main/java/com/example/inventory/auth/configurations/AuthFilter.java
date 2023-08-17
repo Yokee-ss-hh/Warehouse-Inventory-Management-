@@ -59,6 +59,9 @@ public class AuthFilter extends OncePerRequestFilter{
 		        SecurityContextHolder.getContext().setAuthentication(authenticationObject);
 		        logger.info("Authentication is successful");
 			}
+			else {
+				throw new Exception("Token is Null (or) token expired (or) token is not present in DB");
+			}
 		}
 		catch (Exception e) {
 			System.out.println(e);
