@@ -13,6 +13,10 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.example.inventory.auth.entities.AuthToken;
+import com.example.inventory.auth.entities.AuthUser;
+import com.example.inventory.auth.repositories.AuthTokenRepository;
+import com.example.inventory.auth.repositories.AuthUserRepository;
 import com.example.inventory.auth.services.AuthUserService;
 
 import jakarta.servlet.FilterChain;
@@ -31,6 +35,9 @@ public class AuthFilter extends OncePerRequestFilter{
 	
 	@Autowired
 	private AuthUserService service;
+	
+	@Autowired
+	private AuthUserRepository userRepo;
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -39,7 +46,7 @@ public class AuthFilter extends OncePerRequestFilter{
 		try {
 			logger.info("Entering authentication filter!!!!");
 			String authToken = parseJwt(request);
-			if(authToken != null && authUtils.validateJwtToken(authToken)) {
+			if(authToken != null && authUtils.validateJwtToken(authToken) && isTokenPresentInDb(authToken)) {
 				logger.info("Auth token is validated, Fetching details from DB");
 				String username = authUtils.getUserNameFromJwtToken(authToken);
 				UserDetails userDetails = service.loadUserByUsername(username);
@@ -76,6 +83,30 @@ public class AuthFilter extends OncePerRequestFilter{
 	    }
 
 	    return null;
+	}
+	
+	private Boolean isTokenPresentInDb(String token) {
+		String user = authUtils.getUserNameFromJwtToken(token);
+		boolean isUserPresentInDb = userRepo.existsByName(user);
+		if(isUserPresentInDb) {
+			AuthUser authUser = userRepo.findByName(user).get();
+			AuthToken authTokenFK = authUser.getToken();
+			if(authTokenFK != null) {
+				String authToken = authTokenFK.getAccessToken();
+				if(authToken != null && authToken.equals(token)) {
+					return true;
+				}
+				else {
+					return false;
+				}
+			}
+			else {
+				return false;
+			}
+		}
+		else {
+			return false;
+		}
 	}
     
 }

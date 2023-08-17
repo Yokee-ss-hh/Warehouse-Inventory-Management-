@@ -16,6 +16,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +30,7 @@ import com.example.inventory.auth.entities.AuthUser;
 import com.example.inventory.auth.payload.RequestLoginUser;
 import com.example.inventory.auth.payload.RequestRegisterUser;
 import com.example.inventory.auth.payload.ResponseToken;
+import com.example.inventory.auth.repositories.AuthTokenRepository;
 import com.example.inventory.auth.repositories.AuthUserRepository;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +44,9 @@ public class AuthController {
 	
 	@Autowired
 	private AuthUserRepository userRepo;
+	
+	@Autowired
+	private AuthTokenRepository tokenRepository;
 	
 	@Autowired
 	private PasswordEncoder encoder;
@@ -146,5 +151,33 @@ public class AuthController {
 		else {
 		      return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Secret key/ user name / password is not passed");
 		}
-	}
+   }
+	
+   @PostMapping(path = "/logout")
+   public ResponseEntity<String> logOut(HttpServletRequest httpServletRequest){
+	  String authHeaderFromClient = httpServletRequest.getHeader("Authorization");
+	  String authHeaderToken = null;
+	  if(StringUtils.hasText(authHeaderFromClient) && authHeaderFromClient.startsWith("Bearer ")) {
+		  authHeaderToken = authHeaderFromClient.substring(7);
+	  }
+	  if(authHeaderToken != null) {
+		  String userName = utils.getUserNameFromJwtToken(authHeaderToken);
+		  AuthUser user = userRepo.findByName(userName).get();
+		  if(user != null) {
+			  Integer tokenId = user.getToken().getId();
+			  user.setToken(null);
+			  userRepo.save(user);
+			  tokenRepository.deleteById(tokenId);
+			  return ResponseEntity.status(HttpStatus.OK).body("User logged out successfully!");
+		  }
+		  else {
+			  return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+		  }
+	  }
+	  else {
+		  return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token not found");  
+	  }
+   }
+	
+
 }
